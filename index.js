@@ -36,14 +36,15 @@ async function run() {
         const bookingCollection = client.db('carDoctor').collection('bookings');
 
 
+
+        console.log(process.env.ACCESS_TOKEN_SECRET);
         // Auth related API
         app.post('/jwt', async (req, res) => {
             const user = req.body;
             console.log(user);
-            const token = jwt.sign(user, 'secret', { expiresIn: '1h' })
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
             res.send(token);
         });
-
 
 
         // Services Related API
