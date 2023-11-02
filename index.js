@@ -31,6 +31,38 @@ const client = new MongoClient(uri, {
     }
 });
 
+
+
+
+// Middleware
+const logger = async (req, res, next) => {
+    console.log('Called:', req.host, req.originalUrl);
+    next();
+}
+
+
+const verifyToken = async (req, res, next) => {
+    const token = req.cookies?.token;
+    console.log('Value of token in middleware', token);
+    if (!token) {
+        return res.status(401).send({ message: 'Not Authorized' });
+    }
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        // error
+        if (err) {
+            console.log(err);
+            return res.status(401).send({ message: 'Unauthorized' });
+        }
+
+        // If token is valid then it would be decoded
+        console.log('Value is the token', decoded);
+        req.user = decoded;
+        next();
+    })
+}
+
+
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -46,7 +78,7 @@ async function run() {
         // console.log(process.env.ACCESS_TOKEN_SECRET);
 
         // Auth related API
-        app.post('/jwt', async (req, res) => {
+        app.post('/jwt', logger, async (req, res) => {
             const user = req.body;
             console.log(user);
             const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
@@ -59,7 +91,7 @@ async function run() {
 
 
         // Services Related API
-        app.get('/services', async (req, res) => {
+        app.get('/services', logger, async (req, res) => {
             const cursor = serviceCollection.find();
             const result = await cursor.toArray();
             res.send(result);
@@ -81,9 +113,15 @@ async function run() {
 
 
         // Bookings
-        app.get('/bookings', async (req, res) => {
+        app.get('/bookings', logger, verifyToken, async (req, res) => {
             console.log(req.query.email);
-            console.log('token', req.cookies.token)
+            // console.log('token', req.cookies.token);
+            console.log('User in the valid token', req.user);
+            if (req.query.email !== req.user.email) {
+                return res.status(403).send({ message: 'Forbidden Access' });
+            }
+
+
             let query = {};
             if (req.query?.email) {
                 query = { email: req.query.email };
